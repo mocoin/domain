@@ -9,7 +9,7 @@
     }
   ],
   "dependencies": {
-    "@mocoin/factory": "0.0.0-alpha.4",
+    "@mocoin/factory": "0.0.0-alpha.5",
     "@motionpicture/pecorino-api-nodejs-client": "0.0.2",
     "@motionpicture/waiter-domain": "^2.0.2",
     "@sendgrid/mail": "^6.2.1",

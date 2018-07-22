@@ -11,7 +11,9 @@ import * as redis from 'redis';
 import * as CoinAccountService from './service/account/coin';
 import * as NotificationService from './service/notification';
 import * as TaskService from './service/task';
+import * as BuyCoinTransactionService from './service/transaction/buyCoin';
 import * as DepositCoinTransactionService from './service/transaction/depositCoin';
+import * as ReturnCoinTransactionService from './service/transaction/returnCoin';
 import * as TransferCoinTransactionService from './service/transaction/transferCoin';
 import * as WithdrawCoinTransactionService from './service/transaction/withdrawCoin';
 import * as UtilService from './service/util';
@@ -86,7 +88,9 @@ export namespace service {
     }
     export import task = TaskService;
     export namespace transaction {
+        export import buyCoin = BuyCoinTransactionService;
         export import depositCoin = DepositCoinTransactionService;
+        export import returnCoin = ReturnCoinTransactionService;
         export import transferCoin = TransferCoinTransactionService;
         export import withdrawCoin = WithdrawCoinTransactionService;
     }

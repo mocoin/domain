@@ -52,7 +52,7 @@ export class PecorinoRepository {
      * @see https://en.wikipedia.org/wiki/Authorization_hold
      */
     public async authorizeAmount(params: {
-        transaction: factory.transaction.transferCoin.ITransaction;
+        transaction: factory.transaction.buyCoin.ITransaction;
     }): Promise<factory.pecorino.transaction.withdraw.ITransaction> {
         return this.withdrawService.start({
             expires: moment(params.transaction.expires).add(1, 'hour').toDate(),
@@ -78,7 +78,7 @@ export class PecorinoRepository {
      * 入金取引を開始する
      */
     public async startDeposit(params: {
-        transaction: factory.transaction.transferCoin.ITransaction;
+        transaction: factory.transaction.returnCoin.ITransaction;
     }): Promise<factory.pecorino.transaction.deposit.ITransaction> {
         return this.depositService.start({
             // 最大1ヵ月のオーソリ

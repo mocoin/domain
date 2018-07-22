@@ -2,20 +2,22 @@
  * コイン転送取引サービス
  */
 import * as factory from '@mocoin/factory';
-// import * as pecorinoapi from '@motionpicture/pecorino-api-nodejs-client';
+import * as pecorinoapi from '@motionpicture/pecorino-api-nodejs-client';
 import * as createDebug from 'debug';
 
 import { PecorinoRepository as CoinAccountRepo } from '../../repo/account/coin';
 import { MongoRepository as ActionRepo } from '../../repo/action';
+import { PecorinoRepository as BankAccountPaymentRepo } from '../../repo/paymentMethod/bankAccount';
 import { MongoRepository as TaskRepository } from '../../repo/task';
 import { MongoRepository as TransactionRepo } from '../../repo/transaction';
 
-// import { handlePecorinoError } from '../../errorHandler';
+import { handlePecorinoError } from '../../errorHandler';
 
 const debug = createDebug('mocoin-domain:');
 
 export type IStartOperation<T> = (repos: {
     action: ActionRepo;
+    bankAccountPayment: BankAccountPaymentRepo;
     coinAccount: CoinAccountRepo;
     transaction: TransactionRepo;
 }) => Promise<T>;
@@ -31,15 +33,20 @@ export type IAuthorizeDepositCoinOperation<T> = (repos: {
     action: ActionRepo;
     coinAccount: CoinAccountRepo;
 }) => Promise<T>;
+export type IAuthorizeWithdrawBankAccountOperation<T> = (repos: {
+    action: ActionRepo;
+    bankAccountPayment: BankAccountPaymentRepo;
+}) => Promise<T>;
 
 /**
  * 取引開始
  */
 export function start(
-    params: factory.transaction.IStartParams<factory.transactionType.TransferCoin>
-): IStartOperation<factory.transaction.transferCoin.ITransaction> {
+    params: factory.transaction.IStartParams<factory.transactionType.BuyCoin>
+): IStartOperation<factory.transaction.buyCoin.ITransaction> {
     return async (repos: {
         action: ActionRepo;
+        bankAccountPayment: BankAccountPaymentRepo;
         coinAccount: CoinAccountRepo;
         transaction: TransactionRepo;
     }) => {
@@ -50,8 +57,8 @@ export function start(
         // const toAccount = await repos.account.findByAccountNumber(params.object.toAccountNumber);
 
         // 取引オブジェクトを作成
-        const startParams: factory.transaction.IStartParams<factory.transactionType.TransferCoin> = {
-            typeOf: factory.transactionType.TransferCoin,
+        const startParams: factory.transaction.IStartParams<factory.transactionType.BuyCoin> = {
+            typeOf: factory.transactionType.BuyCoin,
             agent: params.agent,
             recipient: params.recipient,
             object: {
@@ -65,9 +72,9 @@ export function start(
         };
 
         // 取引作成
-        let transaction: factory.transaction.transferCoin.ITransaction;
+        let transaction: factory.transaction.buyCoin.ITransaction;
         try {
-            transaction = await repos.transaction.start(factory.transactionType.TransferCoin, startParams);
+            transaction = await repos.transaction.start(factory.transactionType.BuyCoin, startParams);
         } catch (error) {
             // tslint:disable-next-line:no-single-line-block-comment
             /* istanbul ignore next */
@@ -78,8 +85,137 @@ export function start(
             throw error;
         }
 
+        // 残高確認
+        await authorizeWithdrawBankAccount(transaction)(repos);
+
+        // 入金確認
+        await authorizeDepositCoinAccount(transaction)(repos);
+
         // 結果返却
         return transaction;
+    };
+}
+
+function authorizeDepositCoinAccount(
+    params: factory.transaction.buyCoin.ITransaction
+): IAuthorizeDepositCoinOperation<factory.action.authorize.deposit.account.coin.IAction> {
+    return async (repos: {
+        action: ActionRepo;
+        coinAccount: CoinAccountRepo;
+    }) => {
+        if (params.object.toLocation.typeOf !== factory.ownershipInfo.AccountGoodType.CoinAccount) {
+            throw new factory.errors.Argument('params', 'params.object.toLocation.typeOf must be CoinAccount');
+        }
+
+        // 承認アクションを開始する
+        const actionAttributes: factory.action.authorize.deposit.account.coin.IAttributes = {
+            typeOf: factory.actionType.AuthorizeAction,
+            object: {
+                typeOf: factory.action.authorize.deposit.ObjectType.Deposit,
+                amount: params.object.amount,
+                toLocation: params.object.toLocation,
+                notes: params.object.notes
+            },
+            agent: params.agent,
+            recipient: params.recipient,
+            purpose: params
+        };
+        const action = await repos.action.start(actionAttributes);
+
+        let pecorinoTransaction: pecorinoapi.factory.transaction.deposit.ITransaction;
+        try {
+            debug('starting pecorino transaction...');
+            pecorinoTransaction = await repos.coinAccount.startDeposit({ transaction: params });
+            debug('pecorinoTransaction started.', pecorinoTransaction.id);
+        } catch (error) {
+            // actionにエラー結果を追加
+            try {
+                // tslint:disable-next-line:max-line-length no-single-line-block-comment
+                const actionError = { ...error, ...{ name: error.name, message: error.message } };
+                await repos.action.giveUp(action.typeOf, action.id, actionError);
+            } catch (__) {
+                // 失敗したら仕方ない
+            }
+
+            // PecorinoAPIのエラーｗｐハンドリング
+            error = handlePecorinoError(error);
+            throw error;
+        }
+
+        // アクションを完了
+        debug('ending authorize action...');
+        const actionResult: factory.action.authorize.deposit.account.coin.IResult = {
+            amount: params.object.amount,
+            pecorinoTransaction: pecorinoTransaction,
+            pecorinoEndpoint: repos.coinAccount.endpoint
+        };
+
+        return repos.action.complete(<factory.actionType.AuthorizeAction>action.typeOf, action.id, actionResult);
+    };
+}
+
+function authorizeWithdrawBankAccount(
+    params: factory.transaction.buyCoin.ITransaction
+): IAuthorizeWithdrawBankAccountOperation<factory.action.authorize.withdraw.paymentMethod.bankAccount.IAction> {
+    return async (repos: {
+        action: ActionRepo;
+        bankAccountPayment: BankAccountPaymentRepo;
+    }) => {
+        // 他者口座による決済も可能にするためにコメントアウト
+        // 基本的に、自分の口座のオーソリを他者に与えても得しないので、
+        // これが問題になるとすれば、本当にただサービスを荒らしたい悪質な攻撃のみ、ではある
+        // if (transaction.agent.id !== agentId) {
+        //     throw new factory.errors.Forbidden('A specified transaction is not yours.');
+        // }
+
+        if (params.object.fromLocation.typeOf !== 'PaymentMethod') {
+            throw new factory.errors.Argument('params', 'params.object.fromLocation.typeOf must be PaymentMethod');
+        }
+
+        // 承認アクションを開始する
+        const actionAttributes: factory.action.authorize.withdraw.paymentMethod.bankAccount.IAttributes = {
+            typeOf: factory.actionType.AuthorizeAction,
+            object: {
+                typeOf: factory.action.authorize.withdraw.ObjectType.Withdraw,
+                amount: params.object.amount,
+                fromLocation: params.object.fromLocation,
+                notes: params.object.notes
+            },
+            agent: params.agent,
+            recipient: params.recipient,
+            purpose: params
+        };
+        const action = await repos.action.start(actionAttributes);
+
+        let pecorinoTransaction: pecorinoapi.factory.transaction.withdraw.ITransaction;
+
+        try {
+            pecorinoTransaction = await repos.bankAccountPayment.authorizeAmount({ transaction: params });
+            debug('pecorinoTransaction started.', pecorinoTransaction.id);
+        } catch (error) {
+            // actionにエラー結果を追加
+            try {
+                // tslint:disable-next-line:max-line-length no-single-line-block-comment
+                const actionError = { ...error, ...{ name: error.name, message: error.message } };
+                await repos.action.giveUp(action.typeOf, action.id, actionError);
+            } catch (__) {
+                // 失敗したら仕方ない
+            }
+
+            // PecorinoAPIのエラーｗｐハンドリング
+            error = handlePecorinoError(error);
+            throw error;
+        }
+
+        // アクションを完了
+        debug('ending authorize action...');
+        const actionResult: factory.action.authorize.withdraw.paymentMethod.bankAccount.IResult = {
+            amount: params.object.amount,
+            pecorinoTransaction: pecorinoTransaction,
+            pecorinoEndpoint: repos.bankAccountPayment.endpoint
+        };
+
+        return repos.action.complete(<factory.actionType.AuthorizeAction>action.typeOf, action.id, actionResult);
     };
 }
 
@@ -97,7 +233,7 @@ export function confirm(params: {
         debug(`confirming transfer transaction ${params.transactionId}...`);
 
         // 取引存在確認
-        const transaction = await repos.transaction.findById(factory.transactionType.TransferCoin, params.transactionId);
+        const transaction = await repos.transaction.findById(factory.transactionType.BuyCoin, params.transactionId);
 
         // 取引に対する全ての承認アクションをマージ
         let authorizeActions = await repos.action.findAuthorizeByTransactionId(params.transactionId);
@@ -125,13 +261,13 @@ export function confirm(params: {
                 id: transaction.id
             }
         };
-        const potentialActions: factory.transaction.transferCoin.IPotentialActions = {
+        const potentialActions: factory.transaction.buyCoin.IPotentialActions = {
             moneyTransfer: moneyTransferActionAttributes
         };
 
         // 取引確定
         debug('finally confirming transaction...');
-        await repos.transaction.confirm(factory.transactionType.TransferCoin, transaction.id, transaction.object, {}, potentialActions);
+        await repos.transaction.confirm(factory.transactionType.BuyCoin, transaction.id, transaction.object, {}, potentialActions);
     };
 }
 
@@ -143,7 +279,7 @@ export function exportTasks(status: factory.transactionStatusType) {
         task: TaskRepository;
         transaction: TransactionRepo;
     }) => {
-        const transaction = await repos.transaction.startExportTasks(factory.transactionType.TransferCoin, status);
+        const transaction = await repos.transaction.startExportTasks(factory.transactionType.BuyCoin, status);
         if (transaction === null) {
             return;
         }
@@ -163,7 +299,7 @@ export function exportTasksById(transactionId: string): ITaskAndTransactionOpera
         task: TaskRepository;
         transaction: TransactionRepo;
     }) => {
-        const transaction = await repos.transaction.findById(factory.transactionType.TransferCoin, transactionId);
+        const transaction = await repos.transaction.findById(factory.transactionType.BuyCoin, transactionId);
         const potentialActions = transaction.potentialActions;
 
         const taskAttributes: factory.task.IAttributes[] = [];

@@ -178,7 +178,7 @@ export function confirm(params: {
             recipient: transaction.recipient,
             amount: transaction.object.amount,
             fromLocation: {
-                typeOf: transaction.agent.typeOf,
+                typeOf: factory.action.transfer.moneyTransfer.LocationType.Anonymous,
                 name: transaction.agent.name
             },
             toLocation: transaction.object.toLocation,

@@ -98,7 +98,7 @@ export function transferMoney(actionAttributes: factory.action.transfer.moneyTra
                     }
                     break;
 
-                case factory.transactionType.TransferCoin:
+                case factory.transactionType.BuyCoin:
                     // 入金処理
                     switch (actionAttributes.toLocation.typeOf) {
                         // コイン口座へ入金の場合
@@ -112,7 +112,7 @@ export function transferMoney(actionAttributes: factory.action.transfer.moneyTra
                             await repos.cointAccount.settleTransaction(authorizeAction.result.pecorinoTransaction);
                             break;
 
-                        case 'PaymentMethod':
+                        case factory.action.transfer.moneyTransfer.LocationType.PaymentMethod:
                             break;
                         default:
                     }
