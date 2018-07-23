@@ -9,6 +9,7 @@ import { handlePecorinoError } from '../../errorHandler';
 import { PecorinoRepository as CoinAccountRepo } from '../../repo/account/coin';
 import { RedisRepository as AccountNumberRepo } from '../../repo/accountNumber';
 import { MongoRepository as ActionRepo } from '../../repo/action';
+import { PecorinoRepository as BankAccountPaymentRepo } from '../../repo/paymentMethod/bankAccount';
 import { MongoRepository as TransactionRepo } from '../../repo/transaction';
 
 const debug = createDebug('mocoin-domain:*');
@@ -54,8 +55,10 @@ export function open(params: {
  */
 // tslint:disable-next-line:max-func-body-length
 export function transferMoney(actionAttributes: factory.action.transfer.moneyTransfer.IAttributes) {
+    // tslint:disable-next-line:max-func-body-length
     return async (repos: {
         action: ActionRepo;
+        bankAccountPayment: BankAccountPaymentRepo;
         cointAccount: CoinAccountRepo;
         transaction: TransactionRepo;
     }) => {
@@ -67,73 +70,76 @@ export function transferMoney(actionAttributes: factory.action.transfer.moneyTra
         try {
             // 取引存在確認
             const transaction = await repos.transaction.findById(actionAttributes.purpose.typeOf, actionAttributes.purpose.id);
-
-            // const fromLocation = (actionAttributes.fromLocation.typeOf === factory.account.AccountType.Account)
-            //     ? (<factory.action.transfer.moneyTransfer.IAccount>actionAttributes.fromLocation).accountNumber
-            //     // tslint:disable-next-line:no-single-line-block-comment
-            //     /* istanbul ignore next */
-            //     : undefined;
-            // const toAccountNumber = (actionAttributes.toLocation.typeOf === factory.account.AccountType.Account)
-            //     ? (<factory.action.transfer.moneyTransfer.IAccount>actionAttributes.toLocation).accountNumber
-            //     // tslint:disable-next-line:no-single-line-block-comment
-            //     /* istanbul ignore next */
-            //     : undefined;
-
             switch (transaction.typeOf) {
-                case factory.transactionType.DepositCoin:
-                    // 入金処理
-                    switch (actionAttributes.toLocation.typeOf) {
-                        // コイン口座から出金の場合
-                        case factory.ownershipInfo.AccountGoodType.CoinAccount:
-                            const authorizeAction = transaction.object.authorizeActions.find(
-                                (a) => a.object.typeOf === factory.action.authorize.deposit.ObjectType.Deposit
-                            );
-                            if (authorizeAction === undefined || authorizeAction.result === undefined) {
-                                throw new Error('authorizeAction not found');
-                            }
-                            await repos.cointAccount.settleTransaction(authorizeAction.result.pecorinoTransaction);
-                            break;
-
-                        default:
-                    }
-                    break;
-
                 case factory.transactionType.BuyCoin:
                     // 入金処理
-                    switch (actionAttributes.toLocation.typeOf) {
-                        // コイン口座へ入金の場合
-                        case factory.ownershipInfo.AccountGoodType.CoinAccount:
-                            const authorizeAction = transaction.object.authorizeActions.find(
-                                (a) => a.object.typeOf === factory.action.authorize.deposit.ObjectType.Deposit
-                            );
-                            if (authorizeAction === undefined || authorizeAction.result === undefined) {
-                                throw new Error('authorizeAction not found');
-                            }
-                            await repos.cointAccount.settleTransaction(authorizeAction.result.pecorinoTransaction);
-                            break;
+                    await Promise.all(transaction.object.authorizeActions
+                        .filter((a) => a.object.typeOf === factory.action.authorize.deposit.ObjectType.Deposit)
+                        .map(async (a) => {
+                            return (a.result !== undefined)
+                                ? repos.cointAccount.settleTransaction(a.result.pecorinoTransaction)
+                                : undefined;
+                        }));
+                    // 出金処理
+                    await Promise.all(transaction.object.authorizeActions
+                        .filter((a) => a.object.typeOf === factory.action.authorize.withdraw.ObjectType.Withdraw)
+                        .map(async (a) => {
+                            return (a.result !== undefined)
+                                ? repos.bankAccountPayment.settleTransaction(a.result.pecorinoTransaction)
+                                : undefined;
+                        }));
+                    break;
 
-                        case factory.action.transfer.moneyTransfer.LocationType.PaymentMethod:
-                            break;
-                        default:
-                    }
+                case factory.transactionType.DepositCoin:
+                    // 入金処理
+                    await Promise.all(transaction.object.authorizeActions
+                        .filter((a) => a.object.typeOf === factory.action.authorize.deposit.ObjectType.Deposit)
+                        .map(async (a) => {
+                            return (a.result !== undefined)
+                                ? repos.cointAccount.settleTransaction(a.result.pecorinoTransaction)
+                                : undefined;
+                        }));
+                    break;
+
+                case factory.transactionType.ReturnCoin:
+                    // 入金処理
+                    await Promise.all(transaction.object.authorizeActions
+                        .filter((a) => a.object.typeOf === factory.action.authorize.deposit.ObjectType.Deposit)
+                        .map(async (a) => {
+                            return (a.result !== undefined)
+                                ? repos.bankAccountPayment.settleTransaction(a.result.pecorinoTransaction)
+                                : undefined;
+                        }));
+                    // 出金処理
+                    await Promise.all(transaction.object.authorizeActions
+                        .filter((a) => a.object.typeOf === factory.action.authorize.withdraw.ObjectType.Withdraw)
+                        .map(async (a) => {
+                            return (a.result !== undefined)
+                                ? repos.cointAccount.settleTransaction(a.result.pecorinoTransaction)
+                                : undefined;
+                        }));
+                    break;
+
+                case factory.transactionType.TransferCoin:
+                    // 転送処理
+                    await Promise.all(transaction.object.authorizeActions
+                        .filter((a) => a.object.typeOf === factory.action.authorize.transfer.ObjectType.Transfer)
+                        .map(async (a) => {
+                            return (a.result !== undefined)
+                                ? repos.cointAccount.settleTransaction(a.result.pecorinoTransaction)
+                                : undefined;
+                        }));
                     break;
 
                 case factory.transactionType.WithdrawCoin:
-                    // 入金処理
-                    switch (actionAttributes.fromLocation.typeOf) {
-                        // コイン口座から出金の場合
-                        case factory.ownershipInfo.AccountGoodType.CoinAccount:
-                            const authorizeAction = transaction.object.authorizeActions.find(
-                                (a) => a.object.typeOf === factory.action.authorize.withdraw.ObjectType.Withdraw
-                            );
-                            if (authorizeAction === undefined || authorizeAction.result === undefined) {
-                                throw new Error('authorizeAction not found');
-                            }
-                            await repos.cointAccount.settleTransaction(authorizeAction.result.pecorinoTransaction);
-                            break;
-
-                        default:
-                    }
+                    // 出金処理
+                    await Promise.all(transaction.object.authorizeActions
+                        .filter((a) => a.object.typeOf === factory.action.authorize.withdraw.ObjectType.Withdraw)
+                        .map(async (a) => {
+                            return (a.result !== undefined)
+                                ? repos.cointAccount.settleTransaction(a.result.pecorinoTransaction)
+                                : undefined;
+                        }));
                     break;
 
                 default:

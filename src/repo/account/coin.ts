@@ -181,6 +181,34 @@ export class PecorinoRepository {
     }
 
     /**
+     * 転送取引を開始する
+     */
+    public async startTransfer(params: {
+        transaction: factory.transaction.transferCoin.ITransaction;
+    }): Promise<factory.pecorino.transaction.transfer.ITransaction> {
+        return this.transferService.start({
+            // 最大1ヵ月のオーソリ
+            expires: moment(params.transaction.expires).add(1, 'hour').toDate(),
+            agent: {
+                typeOf: <any>params.transaction.agent.typeOf,
+                id: params.transaction.agent.id,
+                name: params.transaction.agent.name,
+                url: params.transaction.agent.url
+            },
+            recipient: {
+                typeOf: <any>params.transaction.recipient.typeOf,
+                id: params.transaction.recipient.id,
+                name: params.transaction.recipient.name,
+                url: params.transaction.recipient.url
+            },
+            amount: params.transaction.object.amount,
+            notes: params.transaction.object.notes,
+            fromAccountNumber: params.transaction.object.fromLocation.accountNumber,
+            toAccountNumber: params.transaction.object.toLocation.accountNumber
+        });
+    }
+
+    /**
      * 決済処理を実行する
      */
     public async settleTransaction(

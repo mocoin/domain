@@ -2,7 +2,7 @@
  * コイン転送取引サービス
  */
 import * as factory from '@mocoin/factory';
-// import * as pecorinoapi from '@motionpicture/pecorino-api-nodejs-client';
+import * as pecorinoapi from '@motionpicture/pecorino-api-nodejs-client';
 import * as createDebug from 'debug';
 
 import { PecorinoRepository as CoinAccountRepo } from '../../repo/account/coin';
@@ -10,7 +10,7 @@ import { MongoRepository as ActionRepo } from '../../repo/action';
 import { MongoRepository as TaskRepository } from '../../repo/task';
 import { MongoRepository as TransactionRepo } from '../../repo/transaction';
 
-// import { handlePecorinoError } from '../../errorHandler';
+import { handlePecorinoError } from '../../errorHandler';
 
 const debug = createDebug('mocoin-domain:');
 
@@ -27,7 +27,7 @@ export type ITransactionOperation<T> = (repos: {
     action: ActionRepo;
     transaction: TransactionRepo;
 }) => Promise<T>;
-export type IAuthorizeDepositCoinOperation<T> = (repos: {
+export type IAuthorizeTransferCoinOperation<T> = (repos: {
     action: ActionRepo;
     coinAccount: CoinAccountRepo;
 }) => Promise<T>;
@@ -78,8 +78,70 @@ export function start(
             throw error;
         }
 
+        // 転送確認
+        await authorizeTransferCoinAccount(transaction)(repos);
+
         // 結果返却
         return transaction;
+    };
+}
+
+function authorizeTransferCoinAccount(
+    params: factory.transaction.transferCoin.ITransaction
+): IAuthorizeTransferCoinOperation<factory.action.authorize.transfer.account.coin.IAction> {
+    return async (repos: {
+        action: ActionRepo;
+        coinAccount: CoinAccountRepo;
+    }) => {
+        if (params.object.toLocation.typeOf !== factory.ownershipInfo.AccountGoodType.CoinAccount) {
+            throw new factory.errors.Argument('params', 'params.object.toLocation.typeOf must be CoinAccount');
+        }
+
+        // 承認アクションを開始する
+        const actionAttributes: factory.action.authorize.transfer.account.coin.IAttributes = {
+            typeOf: factory.actionType.AuthorizeAction,
+            object: {
+                typeOf: factory.action.authorize.transfer.ObjectType.Transfer,
+                amount: params.object.amount,
+                fromLocation: params.object.fromLocation,
+                toLocation: params.object.toLocation,
+                notes: params.object.notes
+            },
+            agent: params.agent,
+            recipient: params.recipient,
+            purpose: params
+        };
+        const action = await repos.action.start(actionAttributes);
+
+        let pecorinoTransaction: pecorinoapi.factory.transaction.transfer.ITransaction;
+        try {
+            debug('starting pecorino transaction...');
+            pecorinoTransaction = await repos.coinAccount.startTransfer({ transaction: params });
+            debug('pecorinoTransaction started.', pecorinoTransaction.id);
+        } catch (error) {
+            // actionにエラー結果を追加
+            try {
+                // tslint:disable-next-line:max-line-length no-single-line-block-comment
+                const actionError = { ...error, ...{ name: error.name, message: error.message } };
+                await repos.action.giveUp(action.typeOf, action.id, actionError);
+            } catch (__) {
+                // 失敗したら仕方ない
+            }
+
+            // PecorinoAPIのエラーｗｐハンドリング
+            error = handlePecorinoError(error);
+            throw error;
+        }
+
+        // アクションを完了
+        debug('ending authorize action...');
+        const actionResult: factory.action.authorize.transfer.account.coin.IResult = {
+            amount: params.object.amount,
+            pecorinoTransaction: pecorinoTransaction,
+            pecorinoEndpoint: repos.coinAccount.endpoint
+        };
+
+        return repos.action.complete(<factory.actionType.AuthorizeAction>action.typeOf, action.id, actionResult);
     };
 }
 

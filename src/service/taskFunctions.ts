@@ -9,12 +9,14 @@ import * as redis from 'redis';
 
 import { PecorinoRepository as CoinAccountRepo } from '../repo/account/coin';
 import { MongoRepository as ActionRepo } from '../repo/action';
+import { PecorinoRepository as BankAccountPaymentRepo } from '../repo/paymentMethod/bankAccount';
 import { MongoRepository as TransactionRepo } from '../repo/transaction';
 
 import * as CointAccountService from './account/coin';
 import * as NotificationService from './notification';
 
 export type ICoinAPIAuthClient = pecorinoapi.auth.ClientCredentials | pecorinoapi.auth.OAuth2;
+export type IBankAPIAuthClient = pecorinoapi.auth.ClientCredentials;
 export type IOperation<T> = (settings: {
     /**
      * MongoDBコネクション
@@ -66,15 +68,22 @@ export function moneyTransfer(
         connection: mongoose.Connection;
         coinAPIEndpoint: string;
         coinAPIAuthClient: ICoinAPIAuthClient;
+        bankAPIEndpoint: string;
+        bankAPIAuthClient: IBankAPIAuthClient;
     }) => {
         const cointAccountRepo = new CoinAccountRepo({
             endpoint: settings.coinAPIEndpoint,
             authClient: settings.coinAPIAuthClient
         });
+        const bankAccountPaymentRepo = new BankAccountPaymentRepo({
+            endpoint: settings.bankAPIEndpoint,
+            authClient: settings.bankAPIAuthClient
+        });
         const actionRepo = new ActionRepo(settings.connection);
         const transactionRepo = new TransactionRepo(settings.connection);
         await CointAccountService.transferMoney(data.actionAttributes)({
             action: actionRepo,
+            bankAccountPayment: bankAccountPaymentRepo,
             cointAccount: cointAccountRepo,
             transaction: transactionRepo
         });
