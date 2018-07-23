@@ -25,20 +25,26 @@ export function sendEmailMessage(data: factory.task.sendEmailMessage.IData): IOp
     };
 }
 
-// export function cancelMoneyTransfer(
-//     data: factory.task.cancelMoneyTransfer.IData
-// ): IOperation<void> {
-//     return async (settings: {
-//         connection: mongoose.Connection;
-//     }) => {
-//         const accountRepo = new AccountRepo(settings.connection);
-//         const transactionRepo = new TransactionRepo(settings.connection);
-//         await AccountService.cancelMoneyTransfer({ transaction: data.transaction })({
-//             account: accountRepo,
-//             transaction: transactionRepo
-//         });
-//     };
-// }
+export function cancelMoneyTransfer(
+    data: factory.task.cancelMoneyTransfer.IData
+): IOperation<void> {
+    return async (settings: IConnectionSettings) => {
+        const cointAccountRepo = new CoinAccountRepo({
+            endpoint: settings.coinAPIEndpoint,
+            authClient: settings.coinAPIAuthClient
+        });
+        const bankAccountPaymentRepo = new BankAccountPaymentRepo({
+            endpoint: settings.bankAPIEndpoint,
+            authClient: settings.bankAPIAuthClient
+        });
+        const transactionRepo = new TransactionRepo(settings.connection);
+        await CointAccountService.cancelMoneyTransfer(data)({
+            bankAccountPayment: bankAccountPaymentRepo,
+            cointAccount: cointAccountRepo,
+            transaction: transactionRepo
+        });
+    };
+}
 
 export function moneyTransfer(
     data: factory.task.moneyTransfer.IData

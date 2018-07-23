@@ -235,41 +235,24 @@ export class PecorinoRepository {
      * 口座上で進行中の取引を中止します。
      * @see https://www.investopedia.com/terms/v/void-transaction.asp
      */
-    // public async voidTransaction(params: {
-    //     fromAccountNumber?: string;
-    //     toAccountNumber?: string;
-    //     amount: number;
-    //     transactionId: string;
-    // }) {
-    //     // 転送元があればhold解除
-    //     if (params.fromAccountNumber !== undefined) {
-    //         await this.accountModel.findOneAndUpdate(
-    //             {
-    //                 accountNumber: params.fromAccountNumber,
-    //                 'pendingTransactions.id': params.transactionId
-    //             },
-    //             {
-    //                 $inc: {
-    //                     availableBalance: params.amount // 残高調整
-    //                 },
-    //                 $pull: { pendingTransactions: { id: params.transactionId } }
-    //             }
-    //         ).exec();
-    //     }
+    public async voidTransaction(
+        params: pecorinoapi.factory.transaction.ITransaction<pecorinoapi.factory.transactionType>
+    ): Promise<void> {
+        // 取引タイプに応じて、取引中止
+        switch (params.typeOf) {
+            case pecorinoapi.factory.transactionType.Deposit:
+                await this.depositService.cancel({ transactionId: params.id });
+                break;
+            case pecorinoapi.factory.transactionType.Transfer:
+                await this.transferService.cancel({ transactionId: params.id });
+                break;
+            case pecorinoapi.factory.transactionType.Withdraw:
+                await this.withdrawService.cancel({ transactionId: params.id });
+                break;
 
-    //     // 転送先へがあれば進行中取引削除
-    //     if (params.toAccountNumber !== undefined) {
-    //         await this.accountModel.findOneAndUpdate(
-    //             {
-    //                 accountNumber: params.toAccountNumber,
-    //                 'pendingTransactions.id': params.transactionId
-    //             },
-    //             {
-    //                 $pull: { pendingTransactions: { id: params.transactionId } }
-    //             }
-    //         ).exec();
-    //     }
-    // }
+            default:
+        }
+    }
 
     /**
      * 口座を検索する

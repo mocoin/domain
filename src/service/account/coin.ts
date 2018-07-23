@@ -168,46 +168,93 @@ export function transferMoney(actionAttributes: factory.action.transfer.moneyTra
  * 期限切れ、あるいは、中止された取引から、転送をアクションを取り消します。
  * @param params.transaction 転送アクションを実行しようとしていた取引
  */
-// export function cancelMoneyTransfer(params: {
-//     transaction: {
-//         typeOf: factory.transactionType;
-//         id: string;
-//     };
-// }) {
-//     return async (repos: {
-//         // account: AccountRepo;
-//         transaction: TransactionRepo;
-//     }) => {
-//         debug(`canceling money transfer... ${params.transaction.typeOf} ${params.transaction.id}`);
-//         let fromAccountNumber: string | undefined;
-//         let toAccountNumber: string | undefined;
-//         // 取引存在確認
-//         const transaction = await repos.transaction.findById(params.transaction.typeOf, params.transaction.id);
+export function cancelMoneyTransfer(params: {
+    transaction: {
+        typeOf: factory.transactionType;
+        id: string;
+    };
+}) {
+    return async (repos: {
+        bankAccountPayment: BankAccountPaymentRepo;
+        cointAccount: CoinAccountRepo;
+        transaction: TransactionRepo;
+    }) => {
+        debug(`canceling money transfer... ${params.transaction.typeOf} ${params.transaction.id}`);
+        // 取引存在確認
+        const transaction = await repos.transaction.findById(params.transaction.typeOf, params.transaction.id);
+        switch (transaction.typeOf) {
+            case factory.transactionType.BuyCoin:
+                // 入金処理
+                await Promise.all(transaction.object.authorizeActions
+                    .filter((a) => a.object.typeOf === factory.action.authorize.deposit.ObjectType.Deposit)
+                    .map(async (a) => {
+                        return (a.result !== undefined)
+                            ? repos.cointAccount.voidTransaction(a.result.pecorinoTransaction)
+                            : undefined;
+                    }));
+                // 出金処理
+                await Promise.all(transaction.object.authorizeActions
+                    .filter((a) => a.object.typeOf === factory.action.authorize.withdraw.ObjectType.Withdraw)
+                    .map(async (a) => {
+                        return (a.result !== undefined)
+                            ? repos.bankAccountPayment.voidTransaction(a.result.pecorinoTransaction)
+                            : undefined;
+                    }));
+                break;
 
-//         switch (params.transaction.typeOf) {
-//             case factory.transactionType.DepositCoin:
-//                 toAccountNumber =
-//                     (<factory.transaction.ITransaction<factory.transactionType.DepositCoin>>transaction).object.toAccountNumber;
-//                 break;
-//             case factory.transactionType.WithdrawCoin:
-//                 fromAccountNumber =
-//                     (<factory.transaction.ITransaction<factory.transactionType.WithdrawCoin>>transaction).object.fromAccountNumber;
-//                 break;
-//             case factory.transactionType.TransferCoin:
-//                 fromAccountNumber =
-//                     (<factory.transaction.ITransaction<factory.transactionType.TransferCoin>>transaction).object.fromAccountNumber;
-//                 toAccountNumber =
-//                     (<factory.transaction.ITransaction<factory.transactionType.TransferCoin>>transaction).object.toAccountNumber;
-//                 break;
-//             default:
-//                 throw new factory.errors.Argument('typeOf', `transaction type ${params.transaction.typeOf} unknown`);
-//         }
+            case factory.transactionType.DepositCoin:
+                // 入金処理
+                await Promise.all(transaction.object.authorizeActions
+                    .filter((a) => a.object.typeOf === factory.action.authorize.deposit.ObjectType.Deposit)
+                    .map(async (a) => {
+                        return (a.result !== undefined)
+                            ? repos.cointAccount.voidTransaction(a.result.pecorinoTransaction)
+                            : undefined;
+                    }));
+                break;
 
-//         await repos.account.voidTransaction({
-//             fromAccountNumber: fromAccountNumber,
-//             toAccountNumber: toAccountNumber,
-//             amount: transaction.object.amount,
-//             transactionId: transaction.id
-//         });
-//     };
-// }
+            case factory.transactionType.ReturnCoin:
+                // 入金処理
+                await Promise.all(transaction.object.authorizeActions
+                    .filter((a) => a.object.typeOf === factory.action.authorize.deposit.ObjectType.Deposit)
+                    .map(async (a) => {
+                        return (a.result !== undefined)
+                            ? repos.bankAccountPayment.voidTransaction(a.result.pecorinoTransaction)
+                            : undefined;
+                    }));
+                // 出金処理
+                await Promise.all(transaction.object.authorizeActions
+                    .filter((a) => a.object.typeOf === factory.action.authorize.withdraw.ObjectType.Withdraw)
+                    .map(async (a) => {
+                        return (a.result !== undefined)
+                            ? repos.cointAccount.voidTransaction(a.result.pecorinoTransaction)
+                            : undefined;
+                    }));
+                break;
+
+            case factory.transactionType.TransferCoin:
+                // 転送処理
+                await Promise.all(transaction.object.authorizeActions
+                    .filter((a) => a.object.typeOf === factory.action.authorize.transfer.ObjectType.Transfer)
+                    .map(async (a) => {
+                        return (a.result !== undefined)
+                            ? repos.cointAccount.voidTransaction(a.result.pecorinoTransaction)
+                            : undefined;
+                    }));
+                break;
+
+            case factory.transactionType.WithdrawCoin:
+                // 出金処理
+                await Promise.all(transaction.object.authorizeActions
+                    .filter((a) => a.object.typeOf === factory.action.authorize.withdraw.ObjectType.Withdraw)
+                    .map(async (a) => {
+                        return (a.result !== undefined)
+                            ? repos.cointAccount.voidTransaction(a.result.pecorinoTransaction)
+                            : undefined;
+                    }));
+                break;
+
+            default:
+        }
+    };
+}
