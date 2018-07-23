@@ -15,19 +15,24 @@ import * as NotificationService from './notification';
 import * as TaskFunctionsService from './taskFunctions';
 
 export type ICoinAPIAuthClient = pecorinoapi.auth.ClientCredentials | pecorinoapi.auth.OAuth2;
-export interface ISettings {
-    /**
-     * タスクリポジトリー
-     */
-    taskRepo: TaskRepo;
+export type IBankAPIAuthClient = pecorinoapi.auth.ClientCredentials | pecorinoapi.auth.OAuth2;
+export interface IConnectionSettings {
     /**
      * MongoDBコネクション
      */
     connection: mongoose.Connection;
     coinAPIEndpoint: string;
     coinAPIAuthClient: ICoinAPIAuthClient;
+    bankAPIEndpoint: string;
+    bankAPIAuthClient: IBankAPIAuthClient;
     // redisClient?: redis.RedisClient;
     // cognitoIdentityServiceProvider?: AWS.CognitoIdentityServiceProvider;
+}
+export interface ISettings extends IConnectionSettings {
+    /**
+     * タスクリポジトリー
+     */
+    taskRepo: TaskRepo;
 }
 export type TaskOperation<T> = (repos: { task: TaskRepo }) => Promise<T>;
 export type IExecuteOperation<T> = (settings: ISettings) => Promise<T>;

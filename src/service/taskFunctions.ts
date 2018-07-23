@@ -4,8 +4,6 @@
  */
 import * as factory from '@mocoin/factory';
 import * as pecorinoapi from '@motionpicture/pecorino-api-nodejs-client';
-import * as mongoose from 'mongoose';
-import * as redis from 'redis';
 
 import { PecorinoRepository as CoinAccountRepo } from '../repo/account/coin';
 import { MongoRepository as ActionRepo } from '../repo/action';
@@ -14,33 +12,14 @@ import { MongoRepository as TransactionRepo } from '../repo/transaction';
 
 import * as CointAccountService from './account/coin';
 import * as NotificationService from './notification';
+import { IConnectionSettings } from './task';
 
 export type ICoinAPIAuthClient = pecorinoapi.auth.ClientCredentials | pecorinoapi.auth.OAuth2;
-export type IBankAPIAuthClient = pecorinoapi.auth.ClientCredentials;
-export type IOperation<T> = (settings: {
-    /**
-     * MongoDBコネクション
-     */
-    connection: mongoose.Connection;
-    /**
-     * Redisクライアント
-     */
-    redisClient?: redis.RedisClient;
-    /**
-     * PecorinoAPI認証クライアント
-     */
-    pecorinoAuthClient?: pecorinoapi.auth.ClientCredentials;
-    /**
-     * Cognitoサービスプロバイダー
-     */
-    cognitoIdentityServiceProvider?: AWS.CognitoIdentityServiceProvider;
-}) => Promise<T>;
+export type IBankAPIAuthClient = pecorinoapi.auth.ClientCredentials | pecorinoapi.auth.OAuth2;
+export type IOperation<T> = (settings: IConnectionSettings) => Promise<T>;
 
 export function sendEmailMessage(data: factory.task.sendEmailMessage.IData): IOperation<void> {
-    return async (settings: {
-        connection: mongoose.Connection;
-        pecorinoAuthClient?: pecorinoapi.auth.ClientCredentials;
-    }) => {
+    return async (settings: IConnectionSettings) => {
         const actionRepo = new ActionRepo(settings.connection);
         await NotificationService.sendEmailMessage(data.actionAttributes)({ action: actionRepo });
     };
@@ -64,13 +43,7 @@ export function sendEmailMessage(data: factory.task.sendEmailMessage.IData): IOp
 export function moneyTransfer(
     data: factory.task.moneyTransfer.IData
 ): IOperation<void> {
-    return async (settings: {
-        connection: mongoose.Connection;
-        coinAPIEndpoint: string;
-        coinAPIAuthClient: ICoinAPIAuthClient;
-        bankAPIEndpoint: string;
-        bankAPIAuthClient: IBankAPIAuthClient;
-    }) => {
+    return async (settings: IConnectionSettings) => {
         const cointAccountRepo = new CoinAccountRepo({
             endpoint: settings.coinAPIEndpoint,
             authClient: settings.coinAPIAuthClient
