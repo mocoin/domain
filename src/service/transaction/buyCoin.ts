@@ -12,9 +12,11 @@ import { MongoRepository as TaskRepository } from '../../repo/task';
 import { MongoRepository as TransactionRepo } from '../../repo/transaction';
 
 import { handlePecorinoError } from '../../errorHandler';
+import * as TransactionUtil from './util';
 
 const debug = createDebug('mocoin-domain:');
 
+export type ITransaction = factory.transaction.buyCoin.ITransaction;
 export type IStartOperation<T> = (repos: {
     action: ActionRepo;
     bankAccountPayment: BankAccountPaymentRepo;
@@ -43,7 +45,7 @@ export type IAuthorizeWithdrawBankAccountOperation<T> = (repos: {
  */
 export function start(
     params: factory.transaction.IStartParams<factory.transactionType.BuyCoin>
-): IStartOperation<factory.transaction.buyCoin.ITransaction> {
+): IStartOperation<factory.transaction.ITokenizedTransaction> {
     return async (repos: {
         action: ActionRepo;
         bankAccountPayment: BankAccountPaymentRepo;
@@ -91,8 +93,8 @@ export function start(
         // 入金確認
         await authorizeDepositCoinAccount(transaction)(repos);
 
-        // 結果返却
-        return transaction;
+        // 取引を暗号化する
+        return TransactionUtil.sign<ITransaction>(transaction);
     };
 }
 
@@ -224,19 +226,18 @@ function authorizeWithdrawBankAccount(
  */
 export function confirm(params: {
     confirmDate: Date;
-    transactionId: string;
+    token: string;
 }): ITransactionOperation<void> {
     return async (repos: {
         action: ActionRepo;
         transaction: TransactionRepo;
     }) => {
-        debug(`confirming transfer transaction ${params.transactionId}...`);
-
         // 取引存在確認
-        const transaction = await repos.transaction.findById(factory.transactionType.BuyCoin, params.transactionId);
+        let transaction = await TransactionUtil.verify<ITransaction>({ token: params.token });
+        transaction = await repos.transaction.findById(factory.transactionType.BuyCoin, transaction.id);
 
         // 取引に対する全ての承認アクションをマージ
-        let authorizeActions = await repos.action.findAuthorizeByTransactionId(params.transactionId);
+        let authorizeActions = await repos.action.findAuthorizeByTransactionId(transaction.id);
         // 万が一このプロセス中に他処理が発生してもそれらを無視するように、endDateでフィルタリング
         authorizeActions = authorizeActions.filter((a) => (a.endDate !== undefined && a.endDate < params.confirmDate));
         transaction.object.authorizeActions = authorizeActions;

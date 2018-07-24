@@ -11,9 +11,11 @@ import { MongoRepository as TaskRepository } from '../../repo/task';
 import { MongoRepository as TransactionRepo } from '../../repo/transaction';
 
 import { handlePecorinoError } from '../../errorHandler';
+import * as TransactionUtil from './util';
 
 const debug = createDebug('mocoin-domain:');
 
+export type ITransaction = factory.transaction.transferCoin.ITransaction;
 export type IStartOperation<T> = (repos: {
     action: ActionRepo;
     coinAccount: CoinAccountRepo;
@@ -37,7 +39,7 @@ export type IAuthorizeTransferCoinOperation<T> = (repos: {
  */
 export function start(
     params: factory.transaction.IStartParams<factory.transactionType.TransferCoin>
-): IStartOperation<factory.transaction.transferCoin.ITransaction> {
+): IStartOperation<factory.transaction.ITokenizedTransaction> {
     return async (repos: {
         action: ActionRepo;
         coinAccount: CoinAccountRepo;
@@ -65,7 +67,7 @@ export function start(
         };
 
         // 取引作成
-        let transaction: factory.transaction.transferCoin.ITransaction;
+        let transaction: ITransaction;
         try {
             transaction = await repos.transaction.start(factory.transactionType.TransferCoin, startParams);
         } catch (error) {
@@ -81,13 +83,12 @@ export function start(
         // 転送確認
         await authorizeTransferCoinAccount(transaction)(repos);
 
-        // 結果返却
-        return transaction;
+        // 取引を暗号化する
+        return TransactionUtil.sign<ITransaction>(transaction);
     };
 }
-
 function authorizeTransferCoinAccount(
-    params: factory.transaction.transferCoin.ITransaction
+    params: ITransaction
 ): IAuthorizeTransferCoinOperation<factory.action.authorize.transfer.account.coin.IAction> {
     return async (repos: {
         action: ActionRepo;
@@ -150,19 +151,18 @@ function authorizeTransferCoinAccount(
  */
 export function confirm(params: {
     confirmDate: Date;
-    transactionId: string;
+    token: string;
 }): ITransactionOperation<void> {
     return async (repos: {
         action: ActionRepo;
         transaction: TransactionRepo;
     }) => {
-        debug(`confirming transfer transaction ${params.transactionId}...`);
-
         // 取引存在確認
-        const transaction = await repos.transaction.findById(factory.transactionType.TransferCoin, params.transactionId);
+        let transaction = await TransactionUtil.verify<ITransaction>({ token: params.token });
+        transaction = await repos.transaction.findById(factory.transactionType.TransferCoin, transaction.id);
 
         // 取引に対する全ての承認アクションをマージ
-        let authorizeActions = await repos.action.findAuthorizeByTransactionId(params.transactionId);
+        let authorizeActions = await repos.action.findAuthorizeByTransactionId(transaction.id);
         // 万が一このプロセス中に他処理が発生してもそれらを無視するように、endDateでフィルタリング
         authorizeActions = authorizeActions.filter((a) => (a.endDate !== undefined && a.endDate < params.confirmDate));
         transaction.object.authorizeActions = authorizeActions;
