@@ -2,7 +2,7 @@
  * コイン入金取引サービス
  */
 import * as factory from '@mocoin/factory';
-import * as pecorinoapi from '@motionpicture/pecorino-api-nodejs-client';
+import * as pecorinoapi from '@pecorino/api-nodejs-client';
 import * as createDebug from 'debug';
 
 import { PecorinoRepository as CoinAccountRepo } from '../../repo/account/coin';

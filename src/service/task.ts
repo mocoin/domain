@@ -2,7 +2,7 @@
  * タスクサービス
  */
 import * as factory from '@mocoin/factory';
-import * as pecorinoapi from '@motionpicture/pecorino-api-nodejs-client';
+import * as pecorinoapi from '@pecorino/api-nodejs-client';
 import * as AWS from 'aws-sdk';
 import * as createDebug from 'debug';
 import * as moment from 'moment';

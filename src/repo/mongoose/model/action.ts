@@ -1,4 +1,3 @@
-import * as factory from '@mocoin/factory';
 import * as mongoose from 'mongoose';
 
 const safe = { j: true, w: 'majority', wtimeout: 10000 };
@@ -57,7 +56,7 @@ const purposeSchema = new mongoose.Schema(
     }
 );
 
-const potentialActionsSchema = new mongoose.Schema(
+const locationSchema = new mongoose.Schema(
     {},
     {
         id: false,
@@ -66,7 +65,7 @@ const potentialActionsSchema = new mongoose.Schema(
     }
 );
 
-const locationSchema = new mongoose.Schema(
+const potentialActionsSchema = new mongoose.Schema(
     {},
     {
         id: false,
@@ -83,6 +82,7 @@ const schema = new mongoose.Schema(
     {
         actionStatus: String,
         typeOf: String,
+        description: String,
         agent: agentSchema,
         recipient: recipientSchema,
         result: resultSchema,
@@ -111,11 +111,9 @@ const schema = new mongoose.Schema(
         toObject: { getters: true }
     }
 );
-
 schema.index(
     { typeOf: 1, _id: 1 }
 );
-
 // 取引の承認アクション検索に使用
 schema.index(
     { typeOf: 1, 'purpose.id': 1 },
@@ -125,63 +123,36 @@ schema.index(
         }
     }
 );
-
-// 取引の承認アクション状態変更に使用
 schema.index(
-    { 'object.typeOf': 1, 'purpose.id': 1, typeOf: 1, _id: 1 },
+    { 'fromLocation.accountNumber': 1, typeOf: 1 },
     {
         partialFilterExpression: {
-            'object.typeOf': { $exists: true },
-            'purpose.id': { $exists: true }
-        }
-    }
-);
-
-// 注文に対するアクション検索に使用
-schema.index(
-    { 'object.orderNumber': 1 },
-    {
-        partialFilterExpression: {
-            'object.orderNumber': { $exists: true }
+            'fromLocation.accountNumber': { $exists: true }
         }
     }
 );
 schema.index(
-    { 'purpose.orderNumber': 1 },
+    { 'toLocation.accountNumber': 1, typeOf: 1 },
     {
         partialFilterExpression: {
-            'purpose.orderNumber': { $exists: true }
+            'toLocation.accountNumber': { $exists: true }
         }
     }
 );
-
-// GMOオーダーIDから支払アクションを検索する際に使用
 schema.index(
-    { 'object.paymentMethod.paymentMethodId': 1 },
+    { 'purpose.typeOf': 1 },
     {
         partialFilterExpression: {
-            typeOf: factory.actionType.PayAction,
-            'object.paymentMethod.paymentMethodId': { $exists: true }
+            'purpose.typeOf': { $exists: true }
         }
     }
 );
-
-// 取引調査や、アクション集計などで、アクションを検索することはとても多いので、そのためのインデックス
 schema.index(
-    { typeOf: 1, 'object.typeOf': 1, startDate: 1 }
+    { typeOf: 1, startDate: 1, endDate: 1, actionStatus: 1 },
+    {
+        name: 'searchActions'
+    }
 );
-
-// 銀行口座取引IDから承認アクション検索時に使用
-// schema.index(
-//     { typeOf: 1, 'object.typeOf': 1, 'object.orderId': 1 },
-//     {
-//         name: 'searchBankAccountPaymentAuthorizeActionByOrderId',
-//         partialFilterExpression: {
-//             'object.typeOf': factory.action.authorize.paymentMethod.bankAccount.ObjectType.BankAccountPayment
-//         }
-//     }
-// );
-
 export default mongoose.model('Action', schema).on(
     'index',
     // tslint:disable-next-line:no-single-line-block-comment
