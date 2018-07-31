@@ -115,7 +115,7 @@ function authorizeWithdrawCoinAccount(
         };
         const action = await repos.action.start(actionAttributes);
 
-        let pecorinoTransaction: pecorinoapi.factory.transaction.withdraw.ITransaction;
+        let pecorinoTransaction: pecorinoapi.factory.transaction.withdraw.ITransaction<factory.accountType.Coin>;
         try {
             debug('starting pecorino transaction...');
             pecorinoTransaction = await repos.coinAccount.authorizeAmount({

@@ -33,9 +33,10 @@ export function open(params: {
         // 口座番号を発行
         const accountNumber = await repos.accountNumber.publish(new Date());
 
-        let account: factory.pecorino.account.IAccount;
+        let account: factory.pecorino.account.IAccount<factory.accountType.Coin>;
         try {
-            account = await repos.accountService.open({
+            account = await repos.accountService.open<factory.accountType.Coin>({
+                accountType: factory.accountType.Coin,
                 accountNumber: accountNumber,
                 name: params.name
             });
@@ -59,7 +60,7 @@ export function transferMoney(actionAttributes: factory.action.transfer.moneyTra
     return async (repos: {
         action: ActionRepo;
         bankAccountPayment: BankAccountPaymentRepo;
-        cointAccount: CoinAccountRepo;
+        coinAccount: CoinAccountRepo;
         transaction: TransactionRepo;
     }) => {
         debug(`transfering money... ${actionAttributes.purpose.typeOf} ${actionAttributes.purpose.id}`);
@@ -75,15 +76,15 @@ export function transferMoney(actionAttributes: factory.action.transfer.moneyTra
                     // 入金処理
                     await Promise.all(transaction.object.authorizeActions
                         .filter((a) => a.object.typeOf === factory.action.authorize.deposit.ObjectType.Deposit)
-                        .map(async (a) => {
+                        .map(async (a: factory.action.authorize.deposit.account.coin.IAction) => {
                             return (a.result !== undefined)
-                                ? repos.cointAccount.settleTransaction(a.result.pecorinoTransaction)
+                                ? repos.coinAccount.settleTransaction(a.result.pecorinoTransaction)
                                 : undefined;
                         }));
                     // 出金処理
                     await Promise.all(transaction.object.authorizeActions
                         .filter((a) => a.object.typeOf === factory.action.authorize.withdraw.ObjectType.Withdraw)
-                        .map(async (a) => {
+                        .map(async (a: factory.action.authorize.withdraw.paymentMethod.bankAccount.IAction) => {
                             return (a.result !== undefined)
                                 ? repos.bankAccountPayment.settleTransaction(a.result.pecorinoTransaction)
                                 : undefined;
@@ -96,7 +97,7 @@ export function transferMoney(actionAttributes: factory.action.transfer.moneyTra
                         .filter((a) => a.object.typeOf === factory.action.authorize.deposit.ObjectType.Deposit)
                         .map(async (a) => {
                             return (a.result !== undefined)
-                                ? repos.cointAccount.settleTransaction(a.result.pecorinoTransaction)
+                                ? repos.coinAccount.settleTransaction(a.result.pecorinoTransaction)
                                 : undefined;
                         }));
                     break;
@@ -105,7 +106,7 @@ export function transferMoney(actionAttributes: factory.action.transfer.moneyTra
                     // 入金処理
                     await Promise.all(transaction.object.authorizeActions
                         .filter((a) => a.object.typeOf === factory.action.authorize.deposit.ObjectType.Deposit)
-                        .map(async (a) => {
+                        .map(async (a: factory.action.authorize.deposit.paymentMethod.bankAccount.IAction) => {
                             return (a.result !== undefined)
                                 ? repos.bankAccountPayment.settleTransaction(a.result.pecorinoTransaction)
                                 : undefined;
@@ -113,9 +114,9 @@ export function transferMoney(actionAttributes: factory.action.transfer.moneyTra
                     // 出金処理
                     await Promise.all(transaction.object.authorizeActions
                         .filter((a) => a.object.typeOf === factory.action.authorize.withdraw.ObjectType.Withdraw)
-                        .map(async (a) => {
+                        .map(async (a: factory.action.authorize.withdraw.account.coin.IAction) => {
                             return (a.result !== undefined)
-                                ? repos.cointAccount.settleTransaction(a.result.pecorinoTransaction)
+                                ? repos.coinAccount.settleTransaction(a.result.pecorinoTransaction)
                                 : undefined;
                         }));
                     break;
@@ -126,7 +127,7 @@ export function transferMoney(actionAttributes: factory.action.transfer.moneyTra
                         .filter((a) => a.object.typeOf === factory.action.authorize.transfer.ObjectType.Transfer)
                         .map(async (a) => {
                             return (a.result !== undefined)
-                                ? repos.cointAccount.settleTransaction(a.result.pecorinoTransaction)
+                                ? repos.coinAccount.settleTransaction(a.result.pecorinoTransaction)
                                 : undefined;
                         }));
                     break;
@@ -137,7 +138,7 @@ export function transferMoney(actionAttributes: factory.action.transfer.moneyTra
                         .filter((a) => a.object.typeOf === factory.action.authorize.withdraw.ObjectType.Withdraw)
                         .map(async (a) => {
                             return (a.result !== undefined)
-                                ? repos.cointAccount.settleTransaction(a.result.pecorinoTransaction)
+                                ? repos.coinAccount.settleTransaction(a.result.pecorinoTransaction)
                                 : undefined;
                         }));
                     break;
@@ -176,7 +177,7 @@ export function cancelMoneyTransfer(params: {
 }) {
     return async (repos: {
         bankAccountPayment: BankAccountPaymentRepo;
-        cointAccount: CoinAccountRepo;
+        coinAccount: CoinAccountRepo;
         transaction: TransactionRepo;
     }) => {
         debug(`canceling money transfer... ${params.transaction.typeOf} ${params.transaction.id}`);
@@ -187,15 +188,15 @@ export function cancelMoneyTransfer(params: {
                 // 入金処理
                 await Promise.all(transaction.object.authorizeActions
                     .filter((a) => a.object.typeOf === factory.action.authorize.deposit.ObjectType.Deposit)
-                    .map(async (a) => {
+                    .map(async (a: factory.action.authorize.deposit.account.coin.IAction) => {
                         return (a.result !== undefined)
-                            ? repos.cointAccount.voidTransaction(a.result.pecorinoTransaction)
+                            ? repos.coinAccount.voidTransaction(a.result.pecorinoTransaction)
                             : undefined;
                     }));
                 // 出金処理
                 await Promise.all(transaction.object.authorizeActions
                     .filter((a) => a.object.typeOf === factory.action.authorize.withdraw.ObjectType.Withdraw)
-                    .map(async (a) => {
+                    .map(async (a: factory.action.authorize.withdraw.paymentMethod.bankAccount.IAction) => {
                         return (a.result !== undefined)
                             ? repos.bankAccountPayment.voidTransaction(a.result.pecorinoTransaction)
                             : undefined;
@@ -208,7 +209,7 @@ export function cancelMoneyTransfer(params: {
                     .filter((a) => a.object.typeOf === factory.action.authorize.deposit.ObjectType.Deposit)
                     .map(async (a) => {
                         return (a.result !== undefined)
-                            ? repos.cointAccount.voidTransaction(a.result.pecorinoTransaction)
+                            ? repos.coinAccount.voidTransaction(a.result.pecorinoTransaction)
                             : undefined;
                     }));
                 break;
@@ -217,7 +218,7 @@ export function cancelMoneyTransfer(params: {
                 // 入金処理
                 await Promise.all(transaction.object.authorizeActions
                     .filter((a) => a.object.typeOf === factory.action.authorize.deposit.ObjectType.Deposit)
-                    .map(async (a) => {
+                    .map(async (a: factory.action.authorize.deposit.paymentMethod.bankAccount.IAction) => {
                         return (a.result !== undefined)
                             ? repos.bankAccountPayment.voidTransaction(a.result.pecorinoTransaction)
                             : undefined;
@@ -225,9 +226,9 @@ export function cancelMoneyTransfer(params: {
                 // 出金処理
                 await Promise.all(transaction.object.authorizeActions
                     .filter((a) => a.object.typeOf === factory.action.authorize.withdraw.ObjectType.Withdraw)
-                    .map(async (a) => {
+                    .map(async (a: factory.action.authorize.withdraw.account.coin.IAction) => {
                         return (a.result !== undefined)
-                            ? repos.cointAccount.voidTransaction(a.result.pecorinoTransaction)
+                            ? repos.coinAccount.voidTransaction(a.result.pecorinoTransaction)
                             : undefined;
                     }));
                 break;
@@ -238,7 +239,7 @@ export function cancelMoneyTransfer(params: {
                     .filter((a) => a.object.typeOf === factory.action.authorize.transfer.ObjectType.Transfer)
                     .map(async (a) => {
                         return (a.result !== undefined)
-                            ? repos.cointAccount.voidTransaction(a.result.pecorinoTransaction)
+                            ? repos.coinAccount.voidTransaction(a.result.pecorinoTransaction)
                             : undefined;
                     }));
                 break;
@@ -249,7 +250,7 @@ export function cancelMoneyTransfer(params: {
                     .filter((a) => a.object.typeOf === factory.action.authorize.withdraw.ObjectType.Withdraw)
                     .map(async (a) => {
                         return (a.result !== undefined)
-                            ? repos.cointAccount.voidTransaction(a.result.pecorinoTransaction)
+                            ? repos.coinAccount.voidTransaction(a.result.pecorinoTransaction)
                             : undefined;
                     }));
                 break;

@@ -124,7 +124,7 @@ function authorizeDepositCoinAccount(
         };
         const action = await repos.action.start(actionAttributes);
 
-        let pecorinoTransaction: pecorinoapi.factory.transaction.deposit.ITransaction;
+        let pecorinoTransaction: pecorinoapi.factory.transaction.deposit.ITransaction<factory.accountType.Coin>;
         try {
             debug('starting pecorino transaction...');
             pecorinoTransaction = await repos.coinAccount.startDeposit({ transaction: params });
@@ -189,8 +189,7 @@ function authorizeWithdrawBankAccount(
         };
         const action = await repos.action.start(actionAttributes);
 
-        let pecorinoTransaction: pecorinoapi.factory.transaction.withdraw.ITransaction;
-
+        let pecorinoTransaction: pecorinoapi.factory.transaction.withdraw.ITransaction<factory.accountType.Default>;
         try {
             pecorinoTransaction = await repos.bankAccountPayment.authorizeAmount({ transaction: params });
             debug('pecorinoTransaction started.', pecorinoTransaction.id);

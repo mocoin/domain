@@ -29,7 +29,7 @@ export function cancelMoneyTransfer(
     data: factory.task.cancelMoneyTransfer.IData
 ): IOperation<void> {
     return async (settings: IConnectionSettings) => {
-        const cointAccountRepo = new CoinAccountRepo({
+        const coinAccountRepo = new CoinAccountRepo({
             endpoint: settings.coinAPIEndpoint,
             authClient: settings.coinAPIAuthClient
         });
@@ -40,7 +40,7 @@ export function cancelMoneyTransfer(
         const transactionRepo = new TransactionRepo(settings.connection);
         await CointAccountService.cancelMoneyTransfer(data)({
             bankAccountPayment: bankAccountPaymentRepo,
-            cointAccount: cointAccountRepo,
+            coinAccount: coinAccountRepo,
             transaction: transactionRepo
         });
     };
@@ -50,7 +50,7 @@ export function moneyTransfer(
     data: factory.task.moneyTransfer.IData
 ): IOperation<void> {
     return async (settings: IConnectionSettings) => {
-        const cointAccountRepo = new CoinAccountRepo({
+        const coinAccountRepo = new CoinAccountRepo({
             endpoint: settings.coinAPIEndpoint,
             authClient: settings.coinAPIAuthClient
         });
@@ -63,7 +63,7 @@ export function moneyTransfer(
         await CointAccountService.transferMoney(data.actionAttributes)({
             action: actionRepo,
             bankAccountPayment: bankAccountPaymentRepo,
-            cointAccount: cointAccountRepo,
+            coinAccount: coinAccountRepo,
             transaction: transactionRepo
         });
     };

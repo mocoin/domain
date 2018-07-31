@@ -132,8 +132,8 @@ export class PecorinoRepository {
      */
     public async authorizeAmount(params: {
         transaction: factory.transaction.withdrawCoin.ITransaction | factory.transaction.returnCoin.ITransaction;
-    }): Promise<factory.pecorino.transaction.withdraw.ITransaction> {
-        return this.withdrawService.start({
+    }): Promise<factory.pecorino.transaction.withdraw.ITransaction<factory.accountType.Coin>> {
+        return this.withdrawService.start<factory.accountType.Coin>({
             expires: moment(params.transaction.expires).add(1, 'hour').toDate(),
             agent: {
                 typeOf: <any>params.transaction.agent.typeOf,
@@ -148,6 +148,7 @@ export class PecorinoRepository {
                 url: params.transaction.recipient.url
             },
             amount: params.transaction.object.amount,
+            accountType: factory.accountType.Coin,
             notes: params.transaction.object.notes,
             fromAccountNumber: params.transaction.object.fromLocation.accountNumber
         });
@@ -158,8 +159,8 @@ export class PecorinoRepository {
      */
     public async startDeposit(params: {
         transaction: factory.transaction.depositCoin.ITransaction | factory.transaction.buyCoin.ITransaction;
-    }): Promise<factory.pecorino.transaction.deposit.ITransaction> {
-        return this.depositService.start({
+    }): Promise<factory.pecorino.transaction.deposit.ITransaction<factory.accountType.Coin>> {
+        return this.depositService.start<factory.accountType.Coin>({
             // 最大1ヵ月のオーソリ
             expires: moment(params.transaction.expires).add(1, 'hour').toDate(),
             agent: {
@@ -175,6 +176,7 @@ export class PecorinoRepository {
                 url: params.transaction.recipient.url
             },
             amount: params.transaction.object.amount,
+            accountType: factory.accountType.Coin,
             notes: params.transaction.object.notes,
             toAccountNumber: params.transaction.object.toLocation.accountNumber
         });
@@ -185,8 +187,8 @@ export class PecorinoRepository {
      */
     public async startTransfer(params: {
         transaction: factory.transaction.transferCoin.ITransaction;
-    }): Promise<factory.pecorino.transaction.transfer.ITransaction> {
-        return this.transferService.start({
+    }): Promise<factory.pecorino.transaction.transfer.ITransaction<factory.accountType.Coin>> {
+        return this.transferService.start<factory.accountType.Coin>({
             // 最大1ヵ月のオーソリ
             expires: moment(params.transaction.expires).add(1, 'hour').toDate(),
             agent: {
@@ -202,6 +204,7 @@ export class PecorinoRepository {
                 url: params.transaction.recipient.url
             },
             amount: params.transaction.object.amount,
+            accountType: factory.accountType.Coin,
             notes: params.transaction.object.notes,
             fromAccountNumber: params.transaction.object.fromLocation.accountNumber,
             toAccountNumber: params.transaction.object.toLocation.accountNumber
@@ -212,7 +215,7 @@ export class PecorinoRepository {
      * 決済処理を実行する
      */
     public async settleTransaction(
-        params: pecorinoapi.factory.transaction.ITransaction<pecorinoapi.factory.transactionType>
+        params: pecorinoapi.factory.transaction.ITransaction<pecorinoapi.factory.transactionType, factory.accountType.Coin>
     ): Promise<void> {
         // 取引タイプに応じて、取引確定
         switch (params.typeOf) {
@@ -236,7 +239,7 @@ export class PecorinoRepository {
      * @see https://www.investopedia.com/terms/v/void-transaction.asp
      */
     public async voidTransaction(
-        params: pecorinoapi.factory.transaction.ITransaction<pecorinoapi.factory.transactionType>
+        params: pecorinoapi.factory.transaction.ITransaction<pecorinoapi.factory.transactionType, factory.accountType.Coin>
     ): Promise<void> {
         // 取引タイプに応じて、取引中止
         switch (params.typeOf) {

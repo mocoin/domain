@@ -9,9 +9,9 @@
     }
   ],
   "dependencies": {
-    "@mocoin/factory": "0.0.0-alpha.7",
+    "@mocoin/factory": "0.0.0-alpha.8",
     "@motionpicture/waiter-domain": "^2.0.2",
-    "@pecorino/api-nodejs-client": "0.0.3",
+    "@pecorino/api-nodejs-client": "^1.0.0",
     "@sendgrid/mail": "^6.2.1",
     "@types/google-libphonenumber": "^7.4.15",
     "@types/mongoose": "^5.0.15",

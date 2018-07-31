@@ -114,7 +114,7 @@ function authorizeTransferCoinAccount(
         };
         const action = await repos.action.start(actionAttributes);
 
-        let pecorinoTransaction: pecorinoapi.factory.transaction.transfer.ITransaction;
+        let pecorinoTransaction: pecorinoapi.factory.transaction.transfer.ITransaction<factory.accountType.Coin>;
         try {
             debug('starting pecorino transaction...');
             pecorinoTransaction = await repos.coinAccount.startTransfer({ transaction: params });
