@@ -94,7 +94,7 @@ function authorizeDepositCoinAccount(
         coinAccount: CoinAccountRepo;
     }) => {
         if (params.object.toLocation.typeOf !== factory.ownershipInfo.AccountGoodType.Account) {
-            throw new factory.errors.Argument('params', 'params.object.toLocation.typeOf must be CoinAccount');
+            throw new factory.errors.Argument('params', 'params.object.toLocation.typeOf must be Account');
         }
 
         // 承認アクションを開始する

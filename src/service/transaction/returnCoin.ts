@@ -106,7 +106,7 @@ function authorizeWithdrawCoinAccount(
         coinAccount: CoinAccountRepo;
     }) => {
         if (params.object.fromLocation.typeOf !== factory.ownershipInfo.AccountGoodType.Account) {
-            throw new factory.errors.Argument('params', 'params.object.fromLocation.typeOf must be CoinAccount');
+            throw new factory.errors.Argument('params', 'params.object.fromLocation.typeOf must be Account');
         }
 
         // 承認アクションを開始する

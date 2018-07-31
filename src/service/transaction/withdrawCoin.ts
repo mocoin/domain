@@ -207,13 +207,15 @@ export function confirm(params: {
         if (transaction.agent.id !== undefined) {
             try {
                 const INCENTIVE = 1;
+                debug('searching point account ownershipInfo...', transaction.agent.id);
                 let ownershipInfos = await repos.ownershipInfo.search({
                     goodType: factory.ownershipInfo.AccountGoodType.Account,
                     ownedBy: transaction.agent.id,
                     ownedAt: new Date()
                 });
                 ownershipInfos = ownershipInfos.filter((o) => o.typeOfGood.accountType === factory.accountType.Point);
-                if (ownershipInfos.length === 0) {
+                debug(ownershipInfos.length, ' point account ownershipInfos found.');
+                if (ownershipInfos.length !== 0) {
                     const depositTransaction = await repos.depositPointService.start({
                         toAccountNumber: ownershipInfos[0].typeOfGood.accountNumber,
                         expires: moment().add(1, 'minute').toDate(),
@@ -223,6 +225,7 @@ export function confirm(params: {
                         accountType: factory.accountType.Point,
                         notes: 'コイン決済インセンティブ'
                     });
+                    debug('deposit point transaction started.', depositTransaction.id);
                     await repos.depositPointService.confirm({ transactionId: depositTransaction.id });
                 }
             } catch (error) {
