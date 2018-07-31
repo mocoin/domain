@@ -174,12 +174,14 @@ export class MongoRepository {
             $or: [
                 {
                     typeOf: factory.actionType.MoneyTransfer,
-                    'fromLocation.typeOf': factory.ownershipInfo.AccountGoodType.CoinAccount,
+                    'fromLocation.typeOf': factory.ownershipInfo.AccountGoodType.Account,
+                    'fromLocation.accountType': factory.accountType.Coin,
                     'fromLocation.accountNumber': searchConditions.accountNumber
                 },
                 {
                     typeOf: factory.actionType.MoneyTransfer,
-                    'toLocation.typeOf': factory.ownershipInfo.AccountGoodType.CoinAccount,
+                    'toLocation.typeOf': factory.ownershipInfo.AccountGoodType.Account,
+                    'toLocation.accountType': factory.accountType.Coin,
                     'toLocation.accountNumber': searchConditions.accountNumber
                 }
             ]

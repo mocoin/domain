@@ -105,7 +105,7 @@ function authorizeDepositCoinAccount(
         action: ActionRepo;
         coinAccount: CoinAccountRepo;
     }) => {
-        if (params.object.toLocation.typeOf !== factory.ownershipInfo.AccountGoodType.CoinAccount) {
+        if (params.object.toLocation.typeOf !== factory.ownershipInfo.AccountGoodType.Account) {
             throw new factory.errors.Argument('params', 'params.object.toLocation.typeOf must be CoinAccount');
         }
 

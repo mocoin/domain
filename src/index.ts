@@ -9,6 +9,7 @@ import * as mongoose from 'mongoose';
 import * as redis from 'redis';
 
 import * as CoinAccountService from './service/account/coin';
+import * as PointAccountService from './service/account/point';
 import * as NotificationService from './service/notification';
 import * as TaskService from './service/task';
 import * as BuyCoinTransactionService from './service/transaction/buyCoin';
@@ -19,6 +20,7 @@ import * as WithdrawCoinTransactionService from './service/transaction/withdrawC
 import * as UtilService from './service/util';
 
 import { PecorinoRepository as CoinAccountRepo } from './repo/account/coin';
+import { PecorinoRepository as PointAccountRepo } from './repo/account/point';
 import { RedisRepository as AccountNumberRepo } from './repo/accountNumber';
 import { MongoRepository as ActionRepo } from './repo/action';
 import { MongoRepository as OrderRepo } from './repo/order';
@@ -57,6 +59,7 @@ export import AWS = AWS;
 export namespace repository {
     export namespace account {
         export class Coin extends CoinAccountRepo { }
+        export class Point extends PointAccountRepo { }
     }
     export namespace paymentMethod {
         export class BankAccount extends BankAccountPaymentRepo { }
@@ -82,6 +85,7 @@ export namespace repository {
 export namespace service {
     export namespace account {
         export import coin = CoinAccountService;
+        export import point = PointAccountService;
     }
     export import notification = NotificationService;
     export namespace person {
