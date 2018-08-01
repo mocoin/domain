@@ -4,9 +4,11 @@
 import * as factory from '@mocoin/factory';
 import * as pecorinoapi from '@pecorino/api-nodejs-client';
 import * as createDebug from 'debug';
+import * as moment from 'moment';
 
 import { PecorinoRepository as CoinAccountRepo } from '../../repo/account/coin';
 import { MongoRepository as ActionRepo } from '../../repo/action';
+import { MongoRepository as OwnershipInfoRepo } from '../../repo/ownershipInfo';
 import { MongoRepository as TaskRepository } from '../../repo/task';
 import { MongoRepository as TransactionRepo } from '../../repo/transaction';
 
@@ -28,6 +30,8 @@ export type ITaskAndTransactionOperation<T> = (repos: {
 export type ITransactionOperation<T> = (repos: {
     action: ActionRepo;
     transaction: TransactionRepo;
+    ownershipInfo: OwnershipInfoRepo;
+    depositPointService: pecorinoapi.service.transaction.Deposit;
 }) => Promise<T>;
 export type IAuthorizeTransferCoinOperation<T> = (repos: {
     action: ActionRepo;
@@ -156,6 +160,8 @@ export function confirm(params: {
     return async (repos: {
         action: ActionRepo;
         transaction: TransactionRepo;
+        ownershipInfo: OwnershipInfoRepo;
+        depositPointService: pecorinoapi.service.transaction.Deposit;
     }) => {
         // 取引存在確認
         let transaction = await TransactionUtil.verify<ITransaction>({ token: params.token });
@@ -190,6 +196,36 @@ export function confirm(params: {
         const potentialActions: factory.transaction.transferCoin.IPotentialActions = {
             moneyTransfer: moneyTransferActionAttributes
         };
+
+        // 本来ポイントインセンティブ付与をタスクに追加するが、ひとまず同期的にポイント入金
+        if (transaction.agent.id !== undefined) {
+            try {
+                const INCENTIVE = 1;
+                debug('searching point account ownershipInfo...', transaction.agent.id);
+                let ownershipInfos = await repos.ownershipInfo.search({
+                    goodType: factory.ownershipInfo.AccountGoodType.Account,
+                    ownedBy: transaction.agent.id,
+                    ownedAt: new Date()
+                });
+                ownershipInfos = ownershipInfos.filter((o) => o.typeOfGood.accountType === factory.accountType.Point);
+                debug(ownershipInfos.length, ' point account ownershipInfos found.');
+                if (ownershipInfos.length !== 0) {
+                    const depositTransaction = await repos.depositPointService.start({
+                        toAccountNumber: ownershipInfos[0].typeOfGood.accountNumber,
+                        expires: moment().add(1, 'minute').toDate(),
+                        agent: transaction.recipient,
+                        recipient: transaction.agent,
+                        amount: INCENTIVE,
+                        accountType: factory.accountType.Point,
+                        notes: 'コイン決済インセンティブ'
+                    });
+                    debug('deposit point transaction started.', depositTransaction.id);
+                    await repos.depositPointService.confirm({ transactionId: depositTransaction.id });
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        }
 
         // 取引確定
         debug('finally confirming transaction...');
